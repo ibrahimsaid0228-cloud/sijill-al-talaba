@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>سجل الطلبة — Sijill al-Talaba</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  window.supabase = createClient(
+    'YOUR_SUPABASE_URL',       // <-- replace with your Project URL
+    'YOUR_SUPABASE_ANON_KEY'   // <-- replace with your anon public key
+  );
+</script>
+<style>
+  :root{
+    --ink:#134E3A;
+    --ink-deep:#0C332A;
+    --paper:#EFE8D8;
+    --paper-light:#F8F4E9;
+    --gold:#9C7A3C;
+    --gold-light:#C9A661;
+    --rubric:#7A2E2E;
+    --rubric-light:#B85C5C;
+    --ok:#3C7A5A;
+    --ink-text:#2A2620;
+    --border:#D8CDA9;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink-text);
+    font-family:'Tajawal',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3,.brand{ font-family:'Amiri',serif; }
+
+  /* ---------- Login ---------- */
+  #login-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg, var(--ink-deep), var(--ink) 60%);
+    padding:24px;
+  }
+  .login-card{
+    background:var(--paper-light);
+    border-radius:16px;
+    padding:36px 28px;
+    width:100%;
+    max-width:380px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    border:1px solid var(--border);
+    text-align:center;
+  }
+  .login-card .brand{ font-size:28px; color:var(--ink); margin:0 0 4px; }
+  .login-card .sub{ font-size:13px; color:var(--gold); margin-bottom:24px; letter-spacing:.5px; }
+  .login-card input{
+    width:100%; padding:12px 14px; margin-bottom:12px;
+    border:1px solid var(--border); border-radius:8px; font-family:'Tajawal';
+    font-size:15px; background:#fff;
+  }
+  .login-card button{
+    width:100%; padding:13px; border:none; border-radius:8px;
+    background:var(--ink); color:#fff; font-family:'Tajawal'; font-weight:700;
+    font-size:15px; cursor:pointer; margin-top:6px;
+  }
+  .login-card button:active{ background:var(--ink-deep); }
+  #login-error{ color:var(--rubric); font-size:13px; margin-top:10px; min-height:16px; }
+
+  /* ---------- App shell ---------- */
+  #app{ display:none; padding-bottom:70px; }
+  header.topbar{
+    background:var(--ink); color:var(--paper-light); padding:14px 18px 0;
+    position:sticky; top:0; z-index:20;
+  }
+  .topbar-row{ display:flex; justify-content:space-between; align-items:center; }
+  .topbar-row .brand{ font-size:20px; margin:0; color:#fff; }
+  .topbar-row .role-pill{
+    font-size:11px; background:var(--gold); color:var(--ink-deep);
+    padding:4px 10px; border-radius:20px; font-weight:700;
+  }
+  #logout-btn{
+    background:transparent; border:1px solid var(--paper-light); color:var(--paper-light);
+    border-radius:20px; padding:4px 12px; font-size:12px; margin-inline-start:8px; cursor:pointer;
+  }
+
+  /* prayer rhythm bar — signature element */
+  .rhythm-bar{
+    display:flex; justify-content:space-between; margin:14px 0 0; padding:0 2px;
+    position:relative;
+  }
+  .rhythm-bar::before{
+    content:''; position:absolute; top:9px; left:6%; right:6%; height:2px;
+    background:rgba(255,255,255,.25);
+  }
+  .rhythm-node{ text-align:center; flex:1; position:relative; z-index:1; }
+  .rhythm-node .dot{
+    width:12px; height:12px; border-radius:50%; background:var(--paper);
+    margin:0 auto 6px; border:2px solid var(--ink);
+  }
+  .rhythm-node.active .dot{ background:var(--gold-light); border-color:var(--gold-light); box-shadow:0 0 0 4px rgba(201,166,97,.3); }
+  .rhythm-node .label{ font-size:10px; color:var(--paper); opacity:.8; }
+  .rhythm-node.active .label{ opacity:1; font-weight:700; color:var(--gold-light); }
+
+  nav.tabs{
+    display:flex; gap:6px; overflow-x:auto; padding:14px 12px 12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  nav.tabs button{
+    flex:0 0 auto; background:rgba(255,255,255,.08); color:var(--paper-light);
+    border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:8px 16px;
+    font-family:'Tajawal'; font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  nav.tabs button.active{ background:var(--gold); color:var(--ink-deep); border-color:var(--gold); font-weight:700; }
+
+  main{ padding:16px; max-width:720px; margin:0 auto; }
+  .card{
+    background:var(--paper-light); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{ margin:0 0 12px; font-size:18px; color:var(--ink); }
+  .field-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .field-row input, .field-row select{
+    flex:1; min-width:120px; padding:9px 10px; border:1px solid var(--border);
+    border-radius:8px; font-family:'Tajawal'; font-size:14px; background:#fff;
+  }
+
+  .student-row{
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .student-row:last-child{ border-bottom:none; }
+  .student-row img.avatar{
+    width:42px; height:42px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--gold-light); flex-shrink:0; background:#ddd;
+  }
+  .student-row .meta{ flex:1; min-width:0; }
+  .student-row .meta .name{ font-weight:700; font-size:14.5px; }
+  .student-row .meta .sub{ font-size:12px; color:#6b6552; }
+  .status-btns{ display:flex; gap:4px; flex-shrink:0; }
+  .status-btns button{
+    border:1px solid var(--border); background:#fff; border-radius:6px;
+    padding:6px 9px; font-size:11px; font-family:'Tajawal'; cursor:pointer; color:#555;
+  }
+  .status-btns button[data-status="on_time"].sel,
+  .status-btns button[data-status="present"].sel{ background:var(--ok); border-color:var(--ok); color:#fff; }
+  .status-btns button[data-status="late"].sel{ background:var(--gold); border-color:var(--gold); color:#fff; }
+  .status-btns button[data-status="absent"].sel{ background:var(--rubric); border-color:var(--rubric); color:#fff; }
+
+  .empty{ text-align:center; padding:30px 10px; color:#8a8266; font-size:14px; }
+  .stat-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stat-box{ background:#fff; border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; }
+  .stat-box .num{ font-size:24px; font-weight:900; color:var(--ink); }
+  .stat-box .lbl{ font-size:11px; color:#8a8266; margin-top:2px; }
+
+  button.primary{
+    background:var(--ink); color:#fff; border:none; border-radius:8px;
+    padding:11px 18px; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  button.secondary{
+    background:transparent; color:var(--ink); border:1px solid var(--ink); border-radius:8px;
+    padding:10px 18px; font-family:'Tajawal'; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .rating-stars{ display:flex; gap:4px; margin-bottom:10px; }
+  .rating-stars button{ font-size:22px; background:none; border:none; cursor:pointer; color:var(--border); }
+  .rating-stars button.sel{ color:var(--gold); }
+  textarea{
+    width:100%; padding:10px; border:1px solid var(--border); border-radius:8px;
+    font-family:'Tajawal'; font-size:14px; min-height:70px; resize:vertical;
+  }
+  .cleaning-grid{ display:grid; gap:8px; }
+  .cleaning-item{
+    display:flex; justify-content:space-between; align-items:center;
+    background:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+  }
+  .cleaning-item .done-badge{ font-size:11px; padding:4px 10px; border-radius:20px; }
+  .cleaning-item .done-badge.no{ background:var(--rubric-light); color:#fff; }
+  .cleaning-item .done-badge.yes{ background:var(--ok); color:#fff; }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-card" id="login-form-card">
+    <h1 class="brand">سجل الطلبة</h1>
+    <div class="sub">Sijill al-Talaba — Hostel Attendance</div>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Password">
+    <button onclick="doLogin()">دخول / Log in</button>
+    <div id="login-error"></div>
+    <div style="margin-top:16px; font-size:13px;">
+      <a href="#" onclick="toggleSignup(true); return false;" style="color:var(--gold);">تسجيل عامل جديد</a>
+    </div>
+  </div>
+  <div class="login-card" id="signup-form-card" style="display:none;">
+    <h1 class="brand">تسجيل عامل جديد</h1>
+    <div class="sub">New Worker Registration</div>
+    <input id="signup-name" placeholder="الاسم الكامل">
+    <input type="email" id="signup-email" placeholder="Email">
+    <input type="password" id="signup-password" placeholder="Password (6+ أحرف)">
+    <input id="signup-invite" placeholder="رمز الدعوة (من المشرف)">
+    <button onclick="doSignup()">تسجيل</button>
+    <div id="signup-error"></div>
+    <div style="margin-top:16px; font-size:13px;">
+      <a href="#" onclick="toggleSignup(false); return false;" style="color:var(--gold);">‹ رجوع لتسجيل الدخول</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1 class="brand">سجل الطلبة</h1>
+      <div>
+        <span class="role-pill" id="role-pill"></span>
+        <button id="logout-btn" onclick="doLogout()">خروج</button>
+      </div>
+    </div>
+    <div class="rhythm-bar" id="rhythm-bar"></div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+  <main id="main-content"></main>
+</div>
+
+<script>
+const sb = () => window.supabase;
+let CURRENT_STAFF = null;
+let CURRENT_TAB = null;
+
+// change this to something only you share with real workers
+const WORKER_INVITE_CODE = 'daranwar2026';
+
+const PRAYERS = [
+  {key:'fajr', label:'الفجر', hour:5},
+  {key:'dhuhr', label:'الظهر', hour:13},
+  {key:'asr', label:'العصر', hour:16},
+  {key:'maghrib', label:'المغرب', hour:18.5},
+  {key:'isha', label:'العشاء', hour:20},
+];
+
+const TAB_CONFIG = {
+  overview:  {label:'نظرة عامة', roles:['admin']},
+  students:  {label:'الطلاب', roles:['admin']},
+  night:     {label:'العودة الليلية', roles:['admin','night_worker']},
+  prayer:    {label:'الصلوات', roles:['admin','prayer_worker']},
+  meal:      {label:'الطعام', roles:['admin','meal_worker']},
+  lecture:   {label:'المحاضرات', roles:['admin','lecture_worker']},
+  maulud:    {label:'المولد', roles:['admin','maulud_worker']},
+  rooms:     {label:'نظافة الغرف', roles:['admin','room_worker']},
+  cleaning:  {label:'جدول التنظيف', roles:['admin','room_worker']},
+  staff:     {label:'الموظفون', roles:['admin']},
+};
+
+// ---------------- SIGNUP ----------------
+function toggleSignup(show){
+  document.getElementById('login-form-card').style.display = show ? 'none' : 'block';
+  document.getElementById('signup-form-card').style.display = show ? 'block' : 'none';
+}
+async function doSignup(){
+  const full_name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const invite = document.getElementById('signup-invite').value.trim();
+  const errBox = document.getElementById('signup-error');
+  errBox.textContent = '';
+  if(invite !== WORKER_INVITE_CODE){ errBox.textContent = 'رمز الدعوة غير صحيح'; return; }
+  if(!full_name || !email || password.length < 6){ errBox.textContent = 'يرجى تعبئة جميع الحقول (كلمة مرور 6 أحرف على الأقل)'; return; }
+
+  const { data, error } = await sb().auth.signUp({ email, password });
+  if(error){ errBox.textContent = 'خطأ: ' + error.message; return; }
+  if(data.user){
+    await sb().from('staff').insert({ id: data.user.id, full_name, email, role: 'pending' });
+  }
+  await sb().auth.signOut();
+  toggleSignup(false);
+  document.getElementById('login-error').textContent = '';
+  alert('تم التسجيل بنجاح. بانتظار موافقة المشرف على حسابك.');
+}
+
+// ---------------- AUTH ----------------
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errBox = document.getElementById('login-error');
+  errBox.textContent = '';
+  const { data, error } = await sb().auth.signInWithPassword({ email, password });
+  if(error){ errBox.textContent = 'خطأ: بيانات الدخول غير صحيحة'; return; }
+  await loadStaffAndBoot(data.user.id);
+}
+async function doLogout(){
+  await sb().auth.signOut();
+  location.reload();
+}
+async function loadStaffAndBoot(userId){
+  const { data, error } = await sb().from('staff').select('*').eq('id', userId).single();
+  if(error || !data){
+    document.getElementById('login-error').textContent = 'لا يوجد حساب موظف مرتبط بهذا الدخول';
+    return;
+  }
+  CURRENT_STAFF = data;
+  if(data.role === 'pending'){
+    document.getElementById('login-error').textContent = '';
+    alert('حسابك بانتظار موافقة المشرف. حاول لاحقاً.');
+    await sb().auth.signOut();
+    return;
+  }
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('role-pill').textContent = CURRENT_STAFF.full_name + ' · ' + CURRENT_STAFF.role;
+  buildRhythmBar();
+  buildTabs();
+}
+async function boot(){
+  const { data } = await sb().auth.getSession();
+  if(data.session){ await loadStaffAndBoot(data.session.user.id); }
+}
+boot();
+
+// ---------------- RHYTHM BAR ----------------
+function buildRhythmBar(){
+  const now = new Date();
+  const hourNow = now.getHours() + now.getMinutes()/60;
+  let activeIdx = 0, best = Infinity;
+  PRAYERS.forEach((p,i)=>{
+    const diff = Math.abs(hourNow - p.hour);
+    if(diff < best){ best = diff; activeIdx = i; }
+  });
+  const bar = document.getElementById('rhythm-bar');
+  bar.innerHTML = PRAYERS.map((p,i)=>`
+    <div class="rhythm-node ${i===activeIdx?'active':''}">
+      <div class="dot"></div><div class="label">${p.label}</div>
+    </div>`).join('');
+}
+
+// ---------------- TABS ----------------
+function buildTabs(){
+  const tabsEl = document.getElementById('tabs');
+  const allowed = Object.entries(TAB_CONFIG).filter(([k,c]) => c.roles.includes(CURRENT_STAFF.role));
+  tabsEl.innerHTML = allowed.map(([k,c]) =>
+    `<button data-tab="${k}" onclick="switchTab('${k}')">${c.label}</button>`).join('');
+  switchTab(allowed[0][0]);
+}
+function switchTab(tab){
+  CURRENT_TAB = tab;
+  document.querySelectorAll('nav.tabs button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  const renderers = {
+    overview: renderOverview,
+    students: renderStudents,
+    night: () => renderAttendance({ table:'attendance_night', title:'العودة الليلية', statuses:['on_time','late','absent'], labels:{on_time:'حاضر',late:'متأخر',absent:'غائب'} }),
+    prayer: renderPrayerTab,
+    meal: renderMealTab,
+    lecture: renderLectureTab,
+    maulud: () => renderAttendance({ table:'attendance_maulud', title:'مولد الجمعة', statuses:['present','late','absent'], labels:{present:'حاضر',late:'متأخر',absent:'غائب'} }),
+    rooms: renderRoomNeatness,
+    cleaning: renderCleaningSchedule,
+    staff: renderStaff,
+  };
+  renderers[tab]();
+}
+
+// ---------------- STAFF MANAGEMENT (admin) ----------------
+const ROLE_LABELS = {
+  admin:'مشرف', night_worker:'العودة الليلية', prayer_worker:'الصلوات',
+  meal_worker:'الطعام', lecture_worker:'المحاضرات', maulud_worker:'المولد',
+  room_worker:'نظافة الغرف', pending:'بانتظار الموافقة'
+};
+async function renderStaff(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="card"><h2>الموظفون</h2><div id="staff-list">جارِ التحميل...</div></div>`;
+  const { data, error } = await sb().from('staff').select('*').order('role');
+  const list = document.getElementById('staff-list');
+  if(error){ list.innerHTML = `<div class="empty">خطأ في التحميل</div>`; return; }
+  if(!data.length){ list.innerHTML = `<div class="empty">لا يوجد موظفون</div>`; return; }
+  const roleOptions = Object.keys(ROLE_LABELS).filter(r=>r!=='pending')
+    .map(r=>`<option value="${r}">${ROLE_LABELS[r]}</option>`).join('');
+  list.innerHTML = data.map(st => `
+    <div class="student-row">
+      <div class="meta">
+        <div class="name">${st.full_name} ${st.role==='pending' ? '<span style="color:var(--rubric);font-size:11px;">(بانتظار الموافقة)</span>' : ''}</div>
+        <div class="sub">${st.email || ''} — ${ROLE_LABELS[st.role] || st.role}</div>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <select id="role-${st.id}" style="padding:6px;border-radius:6px;border:1px solid var(--border);font-family:'Tajawal';font-size:12px;">
+          ${roleOptions}
+        </select>
+        <button class="secondary" style="padding:6px 10px;font-size:12px;" onclick="assignRole('${st.id}')">حفظ</button>
+        <button class="secondary" style="padding:6px 10px;font-size:12px;color:var(--rubric);border-color:var(--rubric);" onclick="deleteStaff('${st.id}')">حذف</button>
+      </div>
+    </div>`).join('');
+  data.forEach(st => {
+    const sel = document.getElementById(`role-${st.id}`);
+    if(sel && st.role !== 'pending') sel.value = st.role;
+  });
+}
+async function assignRole(id){
+  const role = document.getElementById(`role-${id}`).value;
+  const { error } = await sb().from('staff').update({ role }).eq('id', id);
+  if(error){ alert('خطأ: ' + error.message); return; }
+  renderStaff();
+}
+async function deleteStaff(id){
+  if(id === CURRENT_STAFF.id){ alert('لا يمكنك حذف حسابك الخاص'); return; }
+  if(!confirm('هل تريد حذف هذا الموظف؟ سيفقد صلاحية الدخول فوراً.')) return;
+  const { error } = await sb().from('staff').delete().eq('id', id);
+  if(error){ alert('خطأ: ' + error.message); return; }
+  renderStaff();
+}
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+// ---------------- OVERVIEW (admin) ----------------
+async function renderOverview(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="card"><h2>نظرة عامة اليوم</h2><div class="stat-grid" id="stat-grid">جارِ التحميل...</div></div>`;
+  const date = todayStr();
+  const counts = {};
+  const queries = [
+    ['طلاب مسجلون', sb().from('students').select('id',{count:'exact',head:true}).eq('active',true)],
+    ['غياب الفجر', sb().from('attendance_prayer').select('id',{count:'exact',head:true}).eq('date',date).eq('prayer','fajr').eq('status','absent')],
+    ['تأخر العودة الليلية', sb().from('attendance_night').select('id',{count:'exact',head:true}).eq('date',date).eq('status','late')],
+    ['غياب المحاضرات', sb().from('attendance_lecture').select('id',{count:'exact',head:true}).eq('date',date).eq('status','absent')],
+  ];
+  const results = await Promise.all(queries.map(q=>q[1]));
+  const grid = document.getElementById('stat-grid');
+  grid.innerHTML = queries.map((q,i)=>`
+    <div class="stat-box"><div class="num">${results[i].count ?? 0}</div><div class="lbl">${q[0]}</div></div>
+  `).join('');
+}
+
+// ---------------- STUDENTS (admin) ----------------
+async function renderStudents(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="card">
+      <h2>إضافة طالب</h2>
+      <div class="field-row">
+        <input id="new-name" placeholder="الاسم الكامل">
+        <input id="new-room" placeholder="الغرفة">
+        <input id="new-floor" type="number" placeholder="الطابق">
+      </div>
+      <div class="field-row">
+        <input id="new-phone" placeholder="هاتف الطالب">
+        <input id="new-guardian" placeholder="هاتف ولي الأمر">
+      </div>
+      <div class="field-row">
+        <input id="new-photo" type="file" accept="image/*">
+      </div>
+      <button class="primary" onclick="addStudent()">حفظ</button>
+    </div>
+    <div class="card">
+      <h2>بحث</h2>
+      <div class="field-row"><input id="student-search" placeholder="اسم / غرفة / طابق" oninput="renderStudentList()"></div>
+      <div id="student-list">جارِ التحميل...</div>
+    </div>`;
+  renderStudentList();
+}
+async function addStudent(){
+  const name = document.getElementById('new-name').value.trim();
+  const room = document.getElementById('new-room').value.trim();
+  const floor = parseInt(document.getElementById('new-floor').value);
+  const phone = document.getElementById('new-phone').value.trim();
+  const guardian = document.getElementById('new-guardian').value.trim();
+  const fileInput = document.getElementById('new-photo');
+  if(!name || !room || !floor){ alert('يرجى إدخال الاسم والغرفة والطابق'); return; }
+
+  let photo_url = null;
+  if(fileInput.files.length){
+    const file = fileInput.files[0];
+    const path = `${Date.now()}_${file.name}`;
+    const { error: upErr } = await sb().storage.from('student-photos').upload(path, file);
+    if(!upErr){
+      const { data: pub } = sb().storage.from('student-photos').getPublicUrl(path);
+      photo_url = pub.publicUrl;
+    }
+  }
+  const { error } = await sb().from('students').insert({
+    full_name:name, room, floor, phone, guardian_phone:guardian, photo_url
+  });
+  if(error){ alert('خطأ: ' + error.message); return; }
+  renderStudents();
+}
+async function renderStudentList(){
+  const q = (document.getElementById('student-search')?.value || '').trim();
+  let query = sb().from('students').select('*').eq('active', true).order('floor').order('room');
+  if(q) query = query.or(`full_name.ilike.%${q}%,room.ilike.%${q}%`);
+  const { data, error } = await query;
+  const list = document.getElementById('student-list');
+  if(error){ list.innerHTML = `<div class="empty">خطأ في التحميل</div>`; return; }
+  if(!data.length){ list.innerHTML = `<div class="empty">لا يوجد طلاب</div>`; return; }
+  list.innerHTML = data.map(s => `
+    <div class="student-row" style="cursor:pointer;" onclick="renderStudentProfile('${s.id}')">
+      <img class="avatar" src="${s.photo_url || placeholderAvatar()}">
+      <div class="meta">
+        <div class="name">${s.full_name}</div>
+        <div class="sub">طابق ${s.floor} · غرفة ${s.room}</div>
+      </div>
+      <div style="color:#8a8266;font-size:18px;">‹</div>
+    </div>`).join('');
+}
+
+// ---------------- STUDENT PROFILE ----------------
+async function renderStudentProfile(studentId){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="card">جارِ التحميل...</div>`;
+  const { data: s, error } = await sb().from('students').select('*').eq('id', studentId).single();
+  if(error || !s){ main.innerHTML = `<div class="card empty">تعذر تحميل الملف</div>`; return; }
+
+  main.innerHTML = `
+    <div class="card">
+      <button class="secondary" style="margin-bottom:14px;" onclick="renderStudents()">‹ رجوع للقائمة</button>
+      <div style="display:flex; gap:14px; align-items:center; margin-bottom:16px;">
+        <img src="${s.photo_url || placeholderAvatar()}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--gold-light);">
+        <div>
+          <div style="font-size:19px;font-weight:900;">${s.full_name}</div>
+          <div style="color:#8a8266;font-size:13px;">طابق ${s.floor} · غرفة ${s.room}</div>
+        </div>
+      </div>
+      <div style="font-size:14px; line-height:1.9;">
+        <div><b>هاتف الطالب:</b> ${s.phone || '—'}</div>
+        <div><b>هاتف ولي الأمر:</b> ${s.guardian_phone || '—'}</div>
+        <div><b>تاريخ التسجيل:</b> ${s.enrolled_at || '—'}</div>
+        <div><b>ملاحظات:</b> ${s.notes || '—'}</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>ملخص الحضور (آخر 30 يوماً)</h2>
+      <div class="stat-grid" id="profile-stats">جارِ التحميل...</div>
+    </div>
+    <div class="card">
+      <h2>آخر تعليقات على غرفته</h2>
+      <div id="profile-room-notes">جارِ التحميل...</div>
+    </div>
+    <div class="card">
+      <h2>السجل الكامل</h2>
+      <div id="profile-full-record">جارِ التحميل...</div>
+    </div>`;
+
+  loadProfileStats(s);
+  loadProfileRoomNotes(s);
+  loadFullRecord(s);
+}
+
+async function loadFullRecord(s){
+  const el = document.getElementById('profile-full-record');
+  const sources = [
+    ['attendance_night', 'العودة الليلية', r => ''],
+    ['attendance_prayer', 'صلاة', r => r.prayer],
+    ['attendance_meal', 'طعام', r => r.meal],
+    ['attendance_lecture', 'محاضرة', r => r.lecture_name],
+    ['attendance_maulud', 'المولد', r => ''],
+  ];
+  const results = await Promise.all(sources.map(([table]) =>
+    sb().from(table).select('*').eq('student_id', s.id).order('date', {ascending:false}).limit(100)
+  ));
+  let combined = [];
+  results.forEach((res, i) => {
+    const [, label, detailFn] = sources[i];
+    (res.data || []).forEach(r => combined.push({
+      date: r.date, category: label, detail: detailFn(r), status: r.status, created_at: r.created_at
+    }));
+  });
+  combined.sort((a,b) => (b.date+b.created_at).localeCompare(a.date+a.created_at));
+  combined = combined.slice(0, 150);
+  if(!combined.length){ el.innerHTML = `<div class="empty">لا يوجد سجل بعد</div>`; return; }
+  const statusLabel = {on_time:'حاضر', present:'حاضر', late:'متأخر', absent:'غائب'};
+  const statusColor = {on_time:'var(--ok)', present:'var(--ok)', late:'var(--gold)', absent:'var(--rubric)'};
+  el.innerHTML = `<div style="max-height:400px; overflow-y:auto;">` + combined.map(r => `
+    <div class="student-row">
+      <div class="meta">
+        <div class="name">${r.category}${r.detail ? ' — ' + r.detail : ''}</div>
+        <div class="sub">${r.date}</div>
+      </div>
+      <div style="font-size:12px; font-weight:700; color:${statusColor[r.status]||'#555'};">${statusLabel[r.status]||r.status}</div>
+    </div>`).join('') + `</div>`;
+}
+
+async function loadProfileStats(s){
+  const since = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
+  const grid = document.getElementById('profile-stats');
+
+  async function countStatus(table, status, extra){
+    let q = sb().from(table).select('id',{count:'exact',head:true})
+      .eq('student_id', s.id).eq('status', status).gte('date', since);
+    if(extra) q = extra(q);
+    const { count } = await q;
+    return count || 0;
+  }
+
+  const [prayerLate, prayerAbsent, mealAbsent, nightLate, lectureAbsent, mauludAbsent] = await Promise.all([
+    countStatus('attendance_prayer','late'),
+    countStatus('attendance_prayer','absent'),
+    countStatus('attendance_meal','absent'),
+    countStatus('attendance_night','late'),
+    countStatus('attendance_lecture','absent'),
+    countStatus('attendance_maulud','absent'),
+  ]);
+
+  const items = [
+    ['تأخر عن الصلوات', prayerLate],
+    ['غياب عن الصلوات', prayerAbsent],
+    ['غياب عن الطعام', mealAbsent],
+    ['تأخر العودة الليلية', nightLate],
+    ['غياب عن المحاضرات', lectureAbsent],
+    ['غياب عن المولد', mauludAbsent],
+  ];
+  grid.innerHTML = items.map(([label,num]) => `
+    <div class="stat-box"><div class="num">${num}</div><div class="lbl">${label}</div></div>
+  `).join('');
+}
+
+async function loadProfileRoomNotes(s){
+  const { data } = await sb().from('room_neatness').select('*')
+    .eq('floor', s.floor).eq('room', s.room)
+    .order('created_at',{ascending:false}).limit(5);
+  const el = document.getElementById('profile-room-notes');
+  if(!data || !data.length){ el.innerHTML = `<div class="empty">لا يوجد تعليقات</div>`; return; }
+  el.innerHTML = data.map(r => `
+    <div class="student-row">
+      <div class="meta">
+        <div class="name">${r.rating ? '★'.repeat(r.rating) : ''}</div>
+        <div class="sub">${r.comment || ''} — ${new Date(r.created_at).toLocaleDateString('ar')}</div>
+      </div>
+    </div>`).join('');
+}
+function placeholderAvatar(){
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42"><rect width="42" height="42" fill="%23D8CDA9"/></svg>`
+  );
+}
+
+// ---------------- GENERIC ATTENDANCE (night / maulud / lecture-single / etc.) ----------------
+async function fetchStudents(){
+  const { data } = await sb().from('students').select('*').eq('active', true).order('floor').order('room');
+  return data || [];
+}
+async function fetchExisting(table, date, extraFilter){
+  let q = sb().from(table).select('*').eq('date', date);
+  if(extraFilter) q = extraFilter(q);
+  const { data } = await q;
+  const map = {};
+  (data||[]).forEach(r => map[r.student_id] = r.status);
+  return map;
+}
+
+async function renderAttendance({ table, title, statuses, labels, subtype=null, subtypeValue=null, extraCol=null }){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="card">
+      <h2>${title}</h2>
+      <div class="field-row">
+        <input type="date" id="att-date" value="${todayStr()}" onchange="switchTab(CURRENT_TAB)">
+        <input id="att-search" placeholder="بحث بالاسم أو الغرفة" oninput="filterAttRows()">
+      </div>
+      <div id="att-list">جارِ التحميل...</div>
+    </div>`;
+  const date = document.getElementById('att-date').value;
+  const students = await fetchStudents();
+  const filter = extraCol ? (q => q.eq(extraCol.key, extraCol.value)) : null;
+  const existing = await fetchExisting(table, date, filter);
+  const listEl = document.getElementById('att-list');
+  if(!students.length){ listEl.innerHTML = `<div class="empty">لا يوجد طلاب</div>`; return; }
+  listEl.innerHTML = students.map(s => `
+    <div class="student-row" data-name="${s.full_name}" data-room="${s.room}">
+      <img class="avatar" src="${s.photo_url || placeholderAvatar()}">
+      <div class="meta">
+        <div class="name">${s.full_name}</div>
+        <div class="sub">طابق ${s.floor} · غرفة ${s.room}</div>
+      </div>
+      <div class="status-btns">
+        ${statuses.map(st => `<button data-status="${st}" class="${existing[s.id]===st?'sel':''}"
+          onclick="markAttendance('${table}','${s.id}','${date}','${st}',this,${JSON.stringify(extraCol).replace(/"/g,'&quot;')})">${labels[st]}</button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function filterAttRows(){
+  const q = document.getElementById('att-search').value.trim().toLowerCase();
+  document.querySelectorAll('#att-list .student-row').forEach(row=>{
+    const hay = (row.dataset.name + ' ' + row.dataset.room).toLowerCase();
+    row.style.display = hay.includes(q) ? 'flex' : 'none';
+  });
+}
+async function markAttendance(table, student_id, date, status, btnEl, extraColStr){
+  const extraCol = extraColStr && extraColStr !== 'null' ? JSON.parse(extraColStr) : null;
+  const row = { student_id, date, status, logged_by: CURRENT_STAFF.id };
+  if(extraCol) row[extraCol.key] = extraCol.value;
+  const conflictCols = extraCol ? `student_id,date,${extraCol.key}` : 'student_id,date';
+  const { error } = await sb().from(table).upsert(row, { onConflict: conflictCols });
+  if(error){ alert('خطأ: ' + error.message); return; }
+  btnEl.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
+  btnEl.classList.add('sel');
+}
+
+// ---------------- PRAYER TAB (needs prayer-name sub-selector) ----------------
+async function renderPrayerTab(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="card"><h2>الصلوات</h2>
+    <div class="field-row" id="prayer-picker">
+      ${PRAYERS.map(p=>`<button class="secondary" onclick="loadPrayer('${p.key}')">${p.label}</button>`).join('')}
+    </div>
+    <div id="prayer-body"></div>
+  </div>`;
+  loadPrayer(PRAYERS[0].key);
+}
+function loadPrayer(key){
+  const label = PRAYERS.find(p=>p.key===key).label;
+  document.getElementById('prayer-body').innerHTML = '';
+  const holder = document.createElement('div');
+  document.getElementById('prayer-body').appendChild(holder);
+  renderAttendanceInto(holder, {
+    table:'attendance_prayer', title:`صلاة ${label}`,
+    statuses:['on_time','late','absent'], labels:{on_time:'حاضر',late:'متأخر',absent:'غائب'},
+    extraCol:{key:'prayer', value:key}
+  });
+}
+// small variant that renders into a given container instead of replacing #main-content
+async function renderAttendanceInto(container, opts){
+  const tmp = document.getElementById('main-content');
+  const wrapper = document.createElement('div');
+  wrapper.id = 'att-list-wrapper';
+  container.innerHTML = `
+    <div class="field-row">
+      <input type="date" class="att-date-inline" value="${todayStr()}">
+      <input class="att-search-inline" placeholder="بحث بالاسم أو الغرفة">
+    </div>
+    <div class="att-list-inline">جارِ التحميل...</div>`;
+  const dateInput = container.querySelector('.att-date-inline');
+  const searchInput = container.querySelector('.att-search-inline');
+  const listEl = container.querySelector('.att-list-inline');
+
+  async function load(){
+    const date = dateInput.value;
+    const students = await fetchStudents();
+    const filter = opts.extraCol ? (q => q.eq(opts.extraCol.key, opts.extraCol.value)) : null;
+    const existing = await fetchExisting(opts.table, date, filter);
+    if(!students.length){ listEl.innerHTML = `<div class="empty">لا يوجد طلاب</div>`; return; }
+    listEl.innerHTML = students.map(s => `
+      <div class="student-row" data-name="${s.full_name}" data-room="${s.room}">
+        <img class="avatar" src="${s.photo_url || placeholderAvatar()}">
+        <div class="meta"><div class="name">${s.full_name}</div><div class="sub">طابق ${s.floor} · غرفة ${s.room}</div></div>
+        <div class="status-btns">
+          ${opts.statuses.map(st => `<button data-status="${st}" class="${existing[s.id]===st?'sel':''}"
+            onclick="markAttendance('${opts.table}','${s.id}','${date}','${st}',this,${JSON.stringify(opts.extraCol||null).replace(/"/g,'&quot;')})">${opts.labels[st]}</button>`).join('')}
+        </div>
+      </div>`).join('');
+  }
+  dateInput.onchange = load;
+  searchInput.oninput = () => {
+    const q = searchInput.value.trim().toLowerCase();
+    listEl.querySelectorAll('.student-row').forEach(row=>{
+      const hay = (row.dataset.name + ' ' + row.dataset.room).toLowerCase();
+      row.style.display = hay.includes(q) ? 'flex' : 'none';
+    });
+  };
+  load();
+}
+
+// ---------------- MEAL TAB ----------------
+async function renderMealTab(){
+  const main = document.getElementById('main-content');
+  const meals = [{key:'morning',label:'الفطور'},{key:'afternoon',label:'الغداء'},{key:'night',label:'العشاء'}];
+  main.innerHTML = `<div class="card"><h2>الطعام</h2>
+    <div class="field-row" id="meal-picker">
+      ${meals.map(m=>`<button class="secondary" onclick="loadMeal('${m.key}','${m.label}')">${m.label}</button>`).join('')}
+    </div>
+    <div id="meal-body"></div>
+  </div>`;
+  loadMeal(meals[0].key, meals[0].label);
+}
+function loadMeal(key,label){
+  const container = document.getElementById('meal-body');
+  renderAttendanceInto(container, {
+    table:'attendance_meal', title:label,
+    statuses:['on_time','late','absent'], labels:{on_time:'حاضر',late:'متأخر',absent:'غائب'},
+    extraCol:{key:'meal', value:key}
+  });
+}
+
+// ---------------- LECTURE TAB ----------------
+async function renderLectureTab(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `<div class="card"><h2>المحاضرات</h2>
+    <div class="field-row">
+      <input id="lecture-name" placeholder="اسم المحاضرة" value="محاضرة اليوم">
+      <button class="primary" onclick="loadLecture()">تحميل</button>
+    </div>
+    <div id="lecture-body"></div>
+  </div>`;
+  loadLecture();
+}
+function loadLecture(){
+  const name = document.getElementById('lecture-name').value.trim() || 'محاضرة';
+  const container = document.getElementById('lecture-body');
+  renderAttendanceInto(container, {
+    table:'attendance_lecture', title:name,
+    statuses:['present','late','absent'], labels:{present:'حاضر',late:'متأخر',absent:'غائب'},
+    extraCol:{key:'lecture_name', value:name}
+  });
+}
+
+// ---------------- ROOM NEATNESS ----------------
+async function renderRoomNeatness(){
+  const main = document.getElementById('main-content');
+  main.innerHTML = `
+    <div class="card">
+      <h2>تعليق على نظافة الغرفة</h2>
+      <div class="field-row">
+        <input id="rn-floor" type="number" placeholder="الطابق">
+        <input id="rn-room" placeholder="الغرفة">
+      </div>
+      <div class="rating-stars" id="rn-stars">
+        ${[1,2,3,4,5].map(n=>`<button data-n="${n}" onclick="setRating(${n})">★</button>`).join('')}
+      </div>
+      <textarea id="rn-comment" placeholder="ملاحظات..."></textarea>
+      <div style="margin-top:10px;"><button class="primary" onclick="saveNeatness()">حفظ</button></div>
+    </div>
+    <div class="card"><h2>آخر التعليقات</h2><div id="rn-list">جارِ التحميل...</div></div>`;
+  loadNeatnessList();
+}
+let RN_RATING = 0;
+function setRating(n){
+  RN_RATING = n;
+  document.querySelectorAll('#rn-stars button').forEach(b=> b.classList.toggle('sel', parseInt(b.dataset.n) <= n));
+}
+async function saveNeatness(){
+  const floor = parseInt(document.getElementById('rn-floor').value);
+  const room = document.getElementById('rn-room').value.trim();
+  const comment = document.getElementById('rn-comment').value.trim();
+  if(!floor || !room){ alert('أدخل الطابق والغرفة'); return; }
+  const { error } = await sb().from('room_neatness').insert({
+    floor, room, rating: RN_RATING || null, comment, logged_by: CURRENT_STAFF.id
+  });
+  if(error){ alert('خطأ: ' + error.message); return; }
+  document.getElementById('rn-comment').value = '';
+  RN_RATING = 0;
+  loadNeatnessList();
+}
+async function loadNeatnessList(){
+  const { data } = await sb().from('room_neatness').select('*').order('created_at',{ascending:false}).limit(20);
+  const list = document.getElementById('rn-list');
+  if(!data || !data.length){ list.innerHTML = `<div class="empty">لا يوجد تعليقات بعد</div>`; return; }
+  list.innerHTML = data.map(r=>`
+    <div class="student-row">
+      <div class="meta">
+        <div class="name">طابق ${r.floor} · غرفة ${r.room} ${r.rating?('· '+'★'.repeat(r.rating)):''}</div>
+        <div class="sub">${r.comment || ''} — ${new Date(r.created_at).toLocaleDateString('ar')}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ---------------- CLEANING SCHEDULE ----------------
+const DOW = ['','الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+async function renderCleaningSchedule(){
+  const main = document.getElementById('main-content');
+  const today = new Date();
+  const dow = today.getDay() + 1; // supabase 1=Sunday matches JS getDay()+1
+  main.innerHTML = `<div class="card"><h2>جدول التنظيف — اليوم (${DOW[dow]})</h2><div id="clean-list">جارِ التحميل...</div></div>`;
+  const { data: schedule } = await sb().from('cleaning_schedule').select('*').eq('day_of_week', dow).order('floor').order('room');
+  const list = document.getElementById('clean-list');
+  if(!schedule || !schedule.length){ list.innerHTML = `<div class="empty">لا يوجد غرف مجدولة اليوم</div>`; return; }
+  const date = todayStr();
+  const { data: logs } = await sb().from('cleaning_log').select('*').eq('date', date);
+  const doneMap = {};
+  (logs||[]).forEach(l => doneMap[l.schedule_id] = l.done);
+  list.innerHTML = `<div class="cleaning-grid">` + schedule.map(s => `
+    <div class="cleaning-item">
+      <div>طابق ${s.floor} · غرفة ${s.room} <span class="sub" style="color:#8a8266;font-size:12px;"> — ${s.slot_time}</span></div>
+      <button class="done-badge ${doneMap[s.id]?'yes':'no'}" onclick="toggleCleaning('${s.id}', ${!doneMap[s.id]})">${doneMap[s.id] ? 'تم ✓' : 'لم يتم'}</button>
+    </div>`).join('') + `</div>`;
+}
+async function toggleCleaning(schedule_id, done){
+  const { error } = await sb().from('cleaning_log').upsert({
+    schedule_id, date: todayStr(), done, logged_by: CURRENT_STAFF.id
+  }, { onConflict: 'schedule_id,date' });
+  if(error){ alert('خطأ: ' + error.message); return; }
+  renderCleaningSchedule();
+}
+</script>
+</body>
+</html>
